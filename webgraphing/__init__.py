@@ -11,5 +11,4 @@ def main(global_config, **settings):
     config.include('.routes')
     config.scan()
     Thread(target=bokehAppTest.startBokehServer).start()
-    print("hello")
     return config.make_wsgi_app()
