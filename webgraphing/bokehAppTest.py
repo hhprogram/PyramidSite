@@ -18,7 +18,7 @@ from datetime import datetime
 table_name = 'temperatures'
 # using sqlalchemy to connect to it, easier to leverage pandas sql to df and back functions this way
 # if have more queries might be an easier way to interface with db
-cursor = create_engine('sqlite:///path/to/the/sqlite/db/with/sea_surface_temperature_data')
+cursor = create_engine('sqlite:///C:\\Users\\Harrison\\webgraphing\\seaSurface.sqlite')
 # just get the first entry for now. even though have all data to be graphed want to
 # try to simulate 'live-plotting' by only grabbing a row at a time and going back
 # via a callback to retrieve new data and plot on the go
@@ -31,21 +31,27 @@ dfStatic = pd.read_sql_query('SELECT * FROM {}'.format(table_name), cursor)
 dfStatic['time'] = pd.to_datetime(dfStatic['time'])
 print(dfStatic['time'][0].tz, " time zone")
 staticSource = ColumnDataSource(data=dfStatic.to_dict(orient='list'))
+# NOTE: initialize data source with empty dict that has the dict keys
+# that I know are in the database - should maybe make more dynamic and just initialize to empty data source?
+batchSource = ColumnDataSource(data={'time': [], 'temperature': [], 'id': []})
 epochDate = pd.to_datetime("1/1/1970")
 
 def modify_doc(doc):
     id = 0
-    # plot used for continually adding points to graph
-    livePlot = figure(x_axis_type='datetime', y_range=(0, 25), y_axis_label='Temperature (Celsius)',
-                  title="Sea Surface Temperature at 43.18, -70.43")
-    livePlot.line('time', 'temperature', source=source)
-    realTimeTab = Panel(child=livePlot, title="Real Time")
+    manualId = 0
     startDt = dfDict['time'][0].to_pydatetime()
     endDt = dfStatic['time'].iloc[-1].to_pydatetime()
+    # plot used for continually adding points to graph
+    livePlot = figure(x_axis_type='datetime', x_range=[startDt, endDt], y_range=(0,25), y_axis_label='Temperature (Celsius)',
+                  title="Sea Surface Temperature at 43.18, -70.43")
+    livePlot.line('time', 'temperature', source=source)
     # plot that just loads all sample data in at once
     staticPlot = figure(x_axis_type='datetime', x_range=[startDt, endDt], y_range=(0,25), y_axis_label='Temperature (Celsius)',
                   title="Sea Surface Temperature at 43.18, -70.43")
     staticPlot.line(x='time',y='temperature', source=staticSource)
+    manualUpdatePlot = figure(x_axis_type='datetime', x_range=[startDt, endDt], y_range=(0,25), y_axis_label='Temperature (Celsius)',
+                  title="Sea Surface Temperature at 43.18, -70.43")
+    manualUpdatePlot.line(x='time', y='temperature', source=batchSource)
     # currently not using DatePicker as seems to give weird error (potentially browser related. Come back
     # to fix potentially. Also not using DaterangeSlider becuse couldn't get the increments to be
     # small enough to make sense to use
@@ -54,6 +60,7 @@ def modify_doc(doc):
     textEnd = TextInput(value=str(endDt), title='Month/Date/year HH:MM')
     nextButton = Button(label='Go to Next Period')
     jumpInput = TextInput(value=str(startDt), title='Type Month/Date/year HH:MM to jump to')
+    manualUpdateButton = Button(label='update graph')
 
     def updateStartDate(attr, old, new):
         # updates the static plot's beginning x axis range. Note even though the plot is a datetime plot
@@ -106,30 +113,45 @@ def modify_doc(doc):
         textStart.value = datetime.utcfromtimestamp(msecondsFromEpoch // 1000).strftime("%Y-%m-%d %H:%M:%S")
         textEnd.value = datetime.utcfromtimestamp(newEndFloat // 1000).strftime("%Y-%m-%d %H:%M:%S")
 
-    textStart.on_change('value', updateStartDate)
-    textEnd.on_change('value', updateEndDate)
-    nextButton.on_click(nextPeriod)
-    jumpInput.on_change('value', jumpTo)
-    widget = widgetbox(textStart)
-    widget2 = widgetbox(textEnd)
-    widget3 = widgetbox(nextButton)
-    widget4 = widgetbox(jumpInput)
-    staticTab = Panel(child=column(row(widget, widget2, widget3, widget4), staticPlot), title="Static")
-
     def callback():
+        # periodic callback method. just adds one piece of new data from data base
         nonlocal id
         id += 1
         updateDf = pd.read_sql_query('SELECT * from {} WHERE id={};'.format(table_name, id), cursor)
         updateDf['time'] = pd.to_datetime(updateDf['time'])
         newDataDict = updateDf.to_dict(orient='list')
         source.stream(newDataDict)
+
+    def manualUpdate():
+        # the onclick method when the manual update button is pressed read the DB and get the next 10 rows
+        nonlocal manualId
+        global batchSource
+        df = pd.read_sql_query('SELECT * FROM {} WHERE id>= {} LIMIT 10'.format(table_name, manualId), cursor)
+        # need to translate to datetime or else bokeh graph doesn't handle it correctly
+        df['time'] = pd.to_datetime(df['time'])
+        dfDict = df.to_dict(orient='list')
+        batchSource.stream(dfDict)
+        manualId += 10
+
+    textStart.on_change('value', updateStartDate)
+    textEnd.on_change('value', updateEndDate)
+    nextButton.on_click(nextPeriod)
+    jumpInput.on_change('value', jumpTo)
+    manualUpdateButton.on_click(manualUpdate)
+    widget = widgetbox(textStart)
+    widget2 = widgetbox(textEnd)
+    widget3 = widgetbox(nextButton)
+    widget4 = widgetbox(jumpInput)
+    widget5 = widgetbox(manualUpdateButton)
+    realTimeTab = Panel(child=livePlot, title="Real Time")
+    staticTab = Panel(child=column(row(widget, widget2, widget3, widget4), staticPlot), title="Static")
+    manualTab = Panel(child=column(widget5, manualUpdatePlot), title='Manual')
     # uncomment out the below 2 lines to get the 'live plotting' tab to work (given that you have also
     # downloaded the seaSurface.sqlite file)
     # doc.add_root(livePlot)
     # doc.add_periodic_callback(callback, 10)
-    tabs = Tabs(tabs=[realTimeTab, staticTab])
+    tabs = Tabs(tabs=[realTimeTab, staticTab, manualTab])
     doc.add_root(tabs)
-
 
 graphing_App = Application(FunctionHandler(modify_doc))
 
