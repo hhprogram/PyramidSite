@@ -12,13 +12,17 @@ from sqlalchemy import create_engine
 import pandas as pd
 from bokeh.sampledata.sea_surface_temperature import sea_surface_temperature
 from datetime import datetime
+import os
 
 # denoted this as table_name. I create sqlite table separately in another program
 # should change to be more dynamic
 table_name = 'temperatures'
 # using sqlalchemy to connect to it, easier to leverage pandas sql to df and back functions this way
 # if have more queries might be an easier way to interface with db
-cursor = create_engine('sqlite:///C:\\Users\\Harrison\\webgraphing\\seaSurface.sqlite')
+# get path of the underlying projec root folder where the db is held
+path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+path = os.path.join(path, 'seaSurface.sqlite')
+cursor = create_engine('sqlite:///'+path)
 # just get the first entry for now. even though have all data to be graphed want to
 # try to simulate 'live-plotting' by only grabbing a row at a time and going back
 # via a callback to retrieve new data and plot on the go
