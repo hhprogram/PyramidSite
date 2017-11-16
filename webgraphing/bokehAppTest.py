@@ -134,6 +134,8 @@ def modify_doc(doc):
         # need to translate to datetime or else bokeh graph doesn't handle it correctly
         df['time'] = pd.to_datetime(df['time'])
         dfDict = df.to_dict(orient='list')
+        someKey = list(batchSource.data.keys())[0]
+        print(batchSource.data[someKey])
         batchSource.stream(dfDict)
         manualId += 10
 
