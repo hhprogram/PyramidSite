@@ -11,7 +11,7 @@ import sqlite3
 from sqlalchemy import create_engine
 import pandas as pd
 from bokeh.sampledata.sea_surface_temperature import sea_surface_temperature
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 
 # denoted this as table_name. I create sqlite table separately in another program
@@ -46,6 +46,8 @@ def modify_doc(doc):
     startDt = dfDict['time'][0].to_pydatetime()
     endDt = dfStatic['time'].iloc[-1].to_pydatetime()
     # plot used for continually adding points to graph
+    # note: if want to manipulate axis ranges later on need to set some sort of starting range or else when
+    # try to change via figure.x_range.start or figure.x_range.end will get weird incorrect behavior
     livePlot = figure(x_axis_type='datetime', x_range=[startDt, endDt], y_range=(0,25), y_axis_label='Temperature (Celsius)',
                   title="Sea Surface Temperature at 43.18, -70.43")
     livePlot.line('time', 'temperature', source=source)
@@ -53,8 +55,8 @@ def modify_doc(doc):
     staticPlot = figure(x_axis_type='datetime', x_range=[startDt, endDt], y_range=(0,25), y_axis_label='Temperature (Celsius)',
                   title="Sea Surface Temperature at 43.18, -70.43")
     staticPlot.line(x='time',y='temperature', source=staticSource)
-    manualUpdatePlot = figure(x_axis_type='datetime', x_range=[startDt, endDt], y_range=(0,25), y_axis_label='Temperature (Celsius)',
-                  title="Sea Surface Temperature at 43.18, -70.43")
+    manualUpdatePlot = figure(x_axis_type='datetime', x_range=[startDt, endDt], y_range=(0,1),y_axis_label='Temperature (Celsius)',
+                  title="Sea Surface Temperature at 43.18, -70.43", sizing_mode='stretch_both')
     manualUpdatePlot.line(x='time', y='temperature', source=batchSource)
     # currently not using DatePicker as seems to give weird error (potentially browser related. Come back
     # to fix potentially. Also not using DaterangeSlider becuse couldn't get the increments to be
@@ -136,7 +138,12 @@ def modify_doc(doc):
         dfDict = df.to_dict(orient='list')
         someKey = list(batchSource.data.keys())[0]
         print(batchSource.data[someKey])
+        manualUpdatePlot.y_range.start = 0
+        manualUpdatePlot.y_range.end = 25
+        manualUpdatePlot.x_range.start = staticPlot.x_range.start
+        manualUpdatePlot.x_range.end = staticPlot.x_range.end
         batchSource.stream(dfDict)
+
         manualId += 10
 
     textStart.on_change('value', updateStartDate)
@@ -151,12 +158,12 @@ def modify_doc(doc):
     widget5 = widgetbox(manualUpdateButton)
     realTimeTab = Panel(child=livePlot, title="Real Time")
     staticTab = Panel(child=column(row(widget, widget2, widget3, widget4), staticPlot), title="Static")
-    manualTab = Panel(child=column(widget5, manualUpdatePlot), title='Manual')
+    manualTab = Panel(child=column(widget5, manualUpdatePlot), title='Manual', sizing_mode='stretch_both')
     # uncomment out the below 2 lines to get the 'live plotting' tab to work (given that you have also
     # downloaded the seaSurface.sqlite file)
     # doc.add_root(livePlot)
     # doc.add_periodic_callback(callback, 10)
-    tabs = Tabs(tabs=[realTimeTab, staticTab, manualTab])
+    tabs = Tabs(tabs=[realTimeTab, staticTab, manualTab], sizing_mode='stretch_both')
     doc.add_root(tabs)
 
 graphing_App = Application(FunctionHandler(modify_doc))
