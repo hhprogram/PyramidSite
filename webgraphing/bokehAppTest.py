@@ -138,10 +138,6 @@ def modify_doc(doc):
         dfDict = df.to_dict(orient='list')
         someKey = list(batchSource.data.keys())[0]
         print(batchSource.data[someKey])
-        manualUpdatePlot.y_range.start = 0
-        manualUpdatePlot.y_range.end = 25
-        manualUpdatePlot.x_range.start = staticPlot.x_range.start
-        manualUpdatePlot.x_range.end = staticPlot.x_range.end
         batchSource.stream(dfDict)
 
         manualId += 10
