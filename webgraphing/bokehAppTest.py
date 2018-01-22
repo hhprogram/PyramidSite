@@ -23,6 +23,8 @@ table_name = 'temperatures'
 path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 path = os.path.join(path, 'seaSurface.sqlite')
 cursor = create_engine('sqlite:///'+path)
+dfLabels = pd.read_sql_query("SELECT name FROM sqlite_master WHERE type='table';", cursor)
+# print(dfLabels['name'].iloc[0] == 'temperatures')
 # just get the first entry for now. even though have all data to be graphed want to
 # try to simulate 'live-plotting' by only grabbing a row at a time and going back
 # via a callback to retrieve new data and plot on the go
@@ -134,10 +136,15 @@ def modify_doc(doc):
         global batchSource
         df = pd.read_sql_query('SELECT * FROM {} WHERE id>= {} LIMIT 10'.format(table_name, manualId), cursor)
         # need to translate to datetime or else bokeh graph doesn't handle it correctly
+        print(df['time'].iloc[0])
         df['time'] = pd.to_datetime(df['time'])
         dfDict = df.to_dict(orient='list')
         someKey = list(batchSource.data.keys())[0]
-        print(batchSource.data[someKey])
+        # print(batchSource.data[someKey])
+        print(max(df['time']).to_pydatetime())
+        newDt = (max(df['time'])- epochDate).total_seconds()
+        manualUpdatePlot.x_range.end = float(newDt*1000)
+        # manualUpdatePlot.y_range.end = max(df['temperature'])
         batchSource.stream(dfDict)
 
         manualId += 10
