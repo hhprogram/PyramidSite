@@ -34,15 +34,11 @@ df = pd.read_sql_query('SELECT * FROM {} LIMIT 1'.format(table_name), cursor2)
 #need to translate to datetime or else bokeh graph doesn't handle it correctly
 df['time'] = pd.to_datetime(df['time'])
 dfDict = df.to_dict(orient='list')
-print(dfDict.keys())
 # source = ColumnDataSource(data=dfDict)
 dfStatic = pd.read_sql_query('SELECT * FROM {}'.format(table_name), cursor2)
 dfStatic['time'] = pd.to_datetime(dfStatic['time'])
-print(dfStatic['time'][0].tz, " time zone")
-staticSource = ColumnDataSource(data=dfStatic.to_dict(orient='list'))
 # NOTE: initialize data source with empty dict that has the dict keys
 # that I know are in the database - should maybe make more dynamic and just initialize to empty data source?
-batchSource = ColumnDataSource(data={'time': [], 'temperature': [], 'id': []})
 epochDate = pd.to_datetime("1/1/1970")
 source = AjaxDataSource(data=dfDict,
                         data_url='http://localhost:6543/data',
@@ -56,8 +52,12 @@ def bokeh_ajax(request):
     # plot used for continually adding points to graph
     # note: if want to manipulate axis ranges later on need to set some sort of starting range or else when
     # try to change via figure.x_range.start or figure.x_range.end will get weird incorrect behavior
-    livePlot = figure(x_axis_type='datetime', x_range=[startDt, endDt], y_range=(0,25), y_axis_label='Temperature (Celsius)',
-                  title="Sea Surface Temperature at 43.18, -70.43")
+    livePlot = figure(x_axis_type='datetime',
+                      x_range=[startDt, endDt],
+                      y_range=(0,25),
+                      y_axis_label='Temperature (Celsius)',
+                      title="Sea Surface Temperature at 43.18, -70.43",
+                      plot_width=800)
     livePlot.line('time', 'temperature', source=source)
     script, div = components(livePlot)
     return {'script': script, 'div': div, 'someword': "hello"}
