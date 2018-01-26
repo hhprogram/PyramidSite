@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 import os
 from pyramid.view import view_config
 from bokeh.embed import components
+from bokeh.resources import INLINE
 
 # denoted this as table_name. I create sqlite table separately in another program
 # should change to be more dynamic
@@ -42,7 +43,8 @@ dfStatic['time'] = pd.to_datetime(dfStatic['time'])
 epochDate = pd.to_datetime("1/1/1970")
 source = AjaxDataSource(data=dfDict,
                         data_url='http://localhost:6543/data',
-                        polling_interval=1000)
+                        polling_interval=1000,
+                        mode='append')
 manualId = 1
 
 @view_config(route_name='bokeh_AJAX', renderer='../templates/plot2.jinja2')
@@ -60,7 +62,8 @@ def bokeh_ajax(request):
                       plot_width=800)
     livePlot.line('time', 'temperature', source=source)
     script, div = components(livePlot)
-    return {'script': script, 'div': div, 'someword': "hello"}
+    jsResources = INLINE.render_js()
+    return {'script': script, 'div': div, 'someword': "hello", 'jsResources': jsResources}
 
 
 @view_config(route_name='data', renderer='json')

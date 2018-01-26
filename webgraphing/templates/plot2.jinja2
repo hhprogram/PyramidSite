@@ -7,24 +7,37 @@
             --nav_bar_margin: 10%;
         }
 
+        .bk-root {
+            width: 100%;
+            height: 100%;
+        }
+
+        .bk-plotdiv {
+            width: 100%;
+            height: 100%;
+        }
+
         .user_buttons {
-            margin-left: var(--nav_bar_margin)
+            margin-left: var(--nav_bar_margin);
         }
 
         .plot_area {
-            margin-left: var(--nav_bar_margin)
+            margin-left: var(--nav_bar_margin);
+            width: 100%;
+            height: 100%;
         }
         .plot_area2 {
-            margin-left: var(--nav_bar_margin)
+            margin-left: var(--nav_bar_margin);
         }
 
         .navigation {
             position: fixed;
             list-style-type: none;
             width: var(--nav_bar_margin);
-            background-color: orange
+            background-color: orange;
         }
     </style>
+    {{ jsResources | safe }}
 </head>
 <body>
     <nav class="navigation">
@@ -34,7 +47,9 @@
     </nav>
     <div class="plot_area">
         {{ someword | safe }}
+        {{ script | safe}}
         {{ div | safe }}
+
     </div>
     <div class="plot_area2">
     Hello more
