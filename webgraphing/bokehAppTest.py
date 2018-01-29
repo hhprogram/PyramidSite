@@ -128,6 +128,7 @@ def modify_doc(doc):
         updateDf = pd.read_sql_query('SELECT * from {} WHERE id={};'.format(table_name, id), cursor)
         updateDf['time'] = pd.to_datetime(updateDf['time'])
         newDataDict = updateDf.to_dict(orient='list')
+        print("new Data dict:", newDataDict)
         source.stream(newDataDict)
 
     def manualUpdate():
