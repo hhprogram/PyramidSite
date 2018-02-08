@@ -79,7 +79,7 @@ def bokeh_ajax(request):
     # div2 = None
     script2, div2 = components(livePlot2)
 
-    updateStartJS = CustomJS(args=dict(xrange=livePlot.x_range), code="""
+    updateStartJS = CustomJS(args=dict(xrange=livePlot.x_range, plot=livePlot, source=source), code="""
         var startStr = cb_obj.value
         alert(startStr)
         var newStartMilliSeconds = Date.parse(startStr)
@@ -87,7 +87,8 @@ def bokeh_ajax(request):
         alert(xrange)
         alert(xrange.start)
         xrange.start = newStartMilliSeconds
-        alert(xrange.start);
+        alert(xrange.start)
+        xrange.change.emit();
     """)
     updateStart = CustomJS(args=dict(xrange=livePlot.x_range), code="""
         alert(xrange.start);
