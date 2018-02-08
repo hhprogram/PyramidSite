@@ -5,3 +5,4 @@ def includeme(config):
     config.add_route('bokeh_app', '/bokehGraph')
     config.add_route('bokeh_AJAX', '/bokehAJAX')
     config.add_route('data', '/AJAXdata')
+    config.add_route('data2', '/AJAXdata2')
