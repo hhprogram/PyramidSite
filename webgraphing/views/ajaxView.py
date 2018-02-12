@@ -1,4 +1,4 @@
-from bokeh.models.sources import AjaxDataSource
+from bokeh.models.sources import AjaxDataSource, ColumnDataSource
 from bokeh.plotting import figure, curdoc
 from sqlalchemy import create_engine
 import pandas as pd
@@ -8,8 +8,8 @@ import os
 from pyramid.view import view_config
 from bokeh.embed import components
 from bokeh.resources import INLINE
-from bokeh.layouts import widgetbox
-from bokeh.models.widgets import TextInput
+from bokeh.layouts import widgetbox, column, row
+from bokeh.models.widgets import TextInput, Button
 from bokeh.models.callbacks import CustomJS
 
 # denoted this as table_name. I create sqlite table separately in another program
@@ -58,16 +58,33 @@ def bokeh_ajax(request):
                       title="Sea Surface Temperature at 43.18, -70.43",
                       plot_width=800)
     livePlot.line("time", "temperature", source=source)
-    script, div = components(livePlot)
     # note: need the below in order to display the bokeh plot
     jsResources = INLINE.render_js()
     # need the below in order to be able to properly interact with the plot and have the default bokeh plot
     # interaction tool to display
     cssResources = INLINE.render_css()
-    source2 = AjaxDataSource(data={"time": [], "temperature": [], "id": []},
-                            data_url='http://localhost:6543/AJAXdata2',
-                            polling_interval=100,
-                            mode='append')
+
+    updateStartJS = CustomJS(args=dict(plotRange=livePlot.x_range), code="""
+        var newStart = Date.parse(cb_obj.value)
+        plotRange.start = newStart
+        plotRange.change.emit()
+    """)
+
+    updateEndJS = CustomJS(args=dict(plotRange=livePlot.x_range), code="""
+        var newEnd = Date.parse(cb_obj.value)
+        plotRange.end = newEnd
+        plotRange.change.emit()
+    """)
+
+    startInput = TextInput(value=startDt.strftime(dateFmt), title="Enter Date in format: YYYY-mm-dd")
+    startInput.js_on_change('value', updateStartJS)
+    endInput = TextInput(value=endDt.strftime(dateFmt), title="Enter Date in format: YYYY-mm-dd")
+    endInput.js_on_change('value', updateEndJS)
+    textWidgets = row(startInput, endInput)
+    layout =  column(textWidgets, livePlot)
+    script, div = components(layout)
+
+    source2 = ColumnDataSource(data={"time": [], "temperature": [], "id": []})
     livePlot2 = figure(x_axis_type="datetime",
                       x_range=[startDt, endDt],
                       y_range=(0,25),
@@ -75,38 +92,48 @@ def bokeh_ajax(request):
                       title="Sea Surface Temperature at 43.18, -70.43",
                       plot_width=800)
     livePlot2.line("time", "temperature", source=source2)
-    # script2 = None
-    # div2 = None
-    script2, div2 = components(livePlot2)
 
-    updateStartJS = CustomJS(args=dict(xrange=livePlot.x_range), code="""
-        var startStr = cb_obj.value
-        alert(startStr)
-        var newStartMilliSeconds = Date.parse(startStr)
-        alert(newStartMilliSeconds)
-        alert(xrange)
-        alert(xrange.start)
-        xrange.start = newStartMilliSeconds
-        alert(xrange.start)
-        xrange.change.emit();
-    """)
-    updateStart = CustomJS(args=dict(xrange=livePlot.x_range), code="""
-        alert(xrange.start);
-    """)
-    startInput = TextInput(value=startDt.strftime(dateFmt), callback=updateStartJS)
-    endInput = TextInput(value=endDt.strftime(dateFmt))
-    livePlot.x_range.js_on_change('start', updateStart)
-    widgets = widgetbox([startInput, endInput])
-    componentScript, componentDiv = components(widgets)
+    # https://stackoverflow.com/questions/37083998/flask-bokeh-ajaxdatasource
+    # above stackoverflow helped a lot and is what the below CustomJS is based on
+
+    callback = CustomJS(args=dict(source=source2), code="""
+        var time_values = "time";
+        var temperatures = "temperature";
+        var plot_data = source.data;
+
+        jQuery.ajax({
+            type: 'POST',
+            url: '/AJAXdata2',
+            data: {},
+            dataType: 'json',
+            success: function (json_from_server) {
+                plot_data['temperature'] = plot_data['temperature'].concat(json_from_server['temperature']);
+                plot_data['time'] = plot_data['time'].concat(json_from_server['time']);
+                plot_data['id'] = plot_data['id'].concat(json_from_server['id']);
+                source.change.emit();
+            },
+            error: function() {
+                alert("Oh no, something went wrong. Search for an error " +
+                      "message in Flask log and browser developer tools.");
+            }
+        });
+        """)
+
+    manualUpdate = Button(label="update graph", callback=callback)
+    widgets = widgetbox([manualUpdate])
+    # IMPORTANT: key is that the widget you want to control plot X has to be in the same layout object as
+    # said plot X . Therefore, when you call the components() method on it both widget and plot live within the
+    # object, if they are not then the JS callbacks don't work because I think they do not know how to communicate
+    # with one another
+    layout2 = column(widgets, livePlot2)
+    script2, div2 = components(layout2)
     return {'script': script,
             'div': div,
             'someword': "hello",
             'jsResources': jsResources,
             'cssResources': cssResources,
             'script2': script2,
-            'div2': div2,
-            'componentScript': componentScript,
-            'componentDiv': componentDiv}
+            'div2': div2}
 
 # the data url that is polled to adopt the AJAXDATASOURCE. No template rendering as this isn't a page to be viewed
 # just a page to post new data to in JSON format
@@ -127,7 +154,7 @@ def data_route(request):
     dfDict = df.to_dict(orient='list')
     return {'id': dfDict['id'], 'time': dfDict['time'], 'temperature': dfDict['temperature']}
 
-@view_config(route_name='data2', renderer='json')
+@view_config(route_name='data2', renderer='json', request_method='POST')
 def data_route2(request):
     global manualId, cursor2, manualId2
     # NOTE: change later but for now just getting 10 entries at a time and adding that to the graph after each poll

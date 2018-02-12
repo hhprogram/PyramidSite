@@ -137,19 +137,167 @@ def modify_doc(doc):
         global batchSource
         df = pd.read_sql_query('SELECT * FROM {} WHERE id>= {} LIMIT 10'.format(table_name, manualId), cursor)
         # need to translate to datetime or else bokeh graph doesn't handle it correctly
-        print(df['time'].iloc[0])
+        # print(df['time'].iloc[0])
         df['time'] = pd.to_datetime(df['time'])
         dfDict = df.to_dict(orient='list')
         someKey = list(batchSource.data.keys())[0]
         # print(batchSource.data[someKey])
-        print(max(df['time']).to_pydatetime())
+        # print(max(df['time']).to_pydatetime())
         newDt = (max(df['time'])- epochDate).total_seconds()
         manualUpdatePlot.x_range.end = float(newDt*1000)
-        # manualUpdatePlot.y_range.end = max(df['temperature'])
+        manualUpdatePlot.y_range.end = max(df['temperature']) + 10
+        manualUpdatePlot.y_range.start = min(df['temperature']) - 10
         batchSource.stream(dfDict)
-
         manualId += 10
 
+    def updateStartDate2(attr, old, new):
+        # updates the static plot's beginning x axis range. Note even though the plot is a datetime plot
+        # I need to convert it to a float whose value is the microseconds since the epoch 1/1/1970. (microseconds
+        # required as this is rendered using javascript and that uses microseconds
+        newDate = pd.to_datetime(new)
+        msecondsFromEpoch = float((newDate-epochDate).total_seconds()*1000)
+        if msecondsFromEpoch > livePlot.x_range.end:
+            pass
+        else:
+            livePlot.x_range.start = float(msecondsFromEpoch)
+
+    def updateEndDate2(attr, old, new):
+        # same logic as updateStartDate
+        newDate = pd.to_datetime(new)
+        msecondsFromEpoch = float((newDate-epochDate).total_seconds()*1000)
+        if msecondsFromEpoch < livePlot.x_range.start:
+            pass
+        else:
+            livePlot.x_range.end = float(msecondsFromEpoch)
+
+    def nextPeriod2():
+        """Button onclick method that shifts the graph to the next 'period'. A 'period' is determined
+        by the dates seen in the beginning and end date text inputs. The next 'period' starts one microsecond
+        after the current end of xaxis range. Also, updates the textinputs of all relevant textinputs that
+        have dates to match what the user is seeing"""
+        newStartFloat = livePlot.x_range.end + 1
+        periodDuration = livePlot.x_range.end - livePlot.x_range.start
+        newEndFloat = newStartFloat + periodDuration
+        livePlot.x_range.start = newStartFloat
+        livePlot.x_range.end = newEndFloat
+        # note: need to do integer divison by 1000 since we multiplied by 1000 to make into microseconds
+        # to make it compatible for the javascript needed for the bokeh graph ranges but now
+        # datetime python only does seconds so need to convert back
+        # note: using utcfromtimestamp vs just fromtimestamp to stay consistent with pandas converting to utc
+        textStart.value = datetime.utcfromtimestamp(newStartFloat // 1000).strftime("%Y-%m-%d %H:%M:%S")
+        textEnd.value = datetime.utcfromtimestamp(newEndFloat // 1000).strftime("%Y-%m-%d %H:%M:%S")
+        jumpInput.value = textStart.value
+
+    def jumpTo2(attr, old, new):
+        """on change method for the 'jump to' input text box. Used to jumped to desired date
+        maintains current time interval duration"""
+        newDate = pd.to_datetime(new)
+        msecondsFromEpoch = float((newDate-epochDate).total_seconds()*1000)
+        currentTimeRange = livePlot.x_range.end - livePlot.x_range.start
+        newEndFloat = msecondsFromEpoch + currentTimeRange
+        livePlot.x_range.start = msecondsFromEpoch
+        livePlot.x_range.end = newEndFloat
+        # note: using utcfromtimestamp vs just fromtimestamp to stay consistent with pandas converting to utc
+        textStart.value = datetime.utcfromtimestamp(msecondsFromEpoch // 1000).strftime("%Y-%m-%d %H:%M:%S")
+        textEnd.value = datetime.utcfromtimestamp(newEndFloat // 1000).strftime("%Y-%m-%d %H:%M:%S")
+
+    def updateStartDateMaster(attr, old, new):
+        # updates the static plot's beginning x axis range. Note even though the plot is a datetime plot
+        # I need to convert it to a float whose value is the microseconds since the epoch 1/1/1970. (microseconds
+        # required as this is rendered using javascript and that uses microseconds
+        newDate = pd.to_datetime(new)
+        msecondsFromEpoch = float((newDate-epochDate).total_seconds()*1000)
+        if msecondsFromEpoch > livePlot.x_range.end:
+            pass
+        else:
+            livePlot.x_range.start = float(msecondsFromEpoch)
+            staticPlot.x_range.start = float(msecondsFromEpoch)
+            manualUpdatePlot.x_range.start = float(msecondsFromEpoch)
+
+    def updateEndDateMaster(attr, old, new):
+        # same logic as updateStartDate
+        newDate = pd.to_datetime(new)
+        msecondsFromEpoch = float((newDate-epochDate).total_seconds()*1000)
+        if msecondsFromEpoch < livePlot.x_range.start:
+            pass
+        else:
+            livePlot.x_range.end = float(msecondsFromEpoch)
+            staticPlot.x_range.end = float(msecondsFromEpoch)
+            manualUpdatePlot.x_range.end = float(msecondsFromEpoch)
+
+    def nextPeriodMaster():
+        """Button onclick method that shifts the graph to the next 'period'. A 'period' is determined
+        by the dates seen in the beginning and end date text inputs. The next 'period' starts one microsecond
+        after the current end of xaxis range. Also, updates the textinputs of all relevant textinputs that
+        have dates to match what the user is seeing"""
+        newStartFloat = livePlot.x_range.end + 1
+        periodDuration = livePlot.x_range.end - livePlot.x_range.start
+        newEndFloat = newStartFloat + periodDuration
+        livePlot.x_range.start = newStartFloat
+        livePlot.x_range.end = newEndFloat
+        staticPlot.x_range.start = newStartFloat
+        staticPlot.x_range.end = newEndFloat
+        manualUpdatePlot.x_range.start = newStartFloat
+        manualUpdatePlot.x_range.end = newEndFloat
+        # note: need to do integer divison by 1000 since we multiplied by 1000 to make into microseconds
+        # to make it compatible for the javascript needed for the bokeh graph ranges but now
+        # datetime python only does seconds so need to convert back
+        # note: using utcfromtimestamp vs just fromtimestamp to stay consistent with pandas converting to utc
+        textStartMaster.value = datetime.utcfromtimestamp(newStartFloat // 1000).strftime("%Y-%m-%d %H:%M:%S")
+        textEndMaster.value = datetime.utcfromtimestamp(newEndFloat // 1000).strftime("%Y-%m-%d %H:%M:%S")
+        jumpInputMaster.value = textStartMaster.value
+        textStart.value = datetime.utcfromtimestamp(newStartFloat // 1000).strftime("%Y-%m-%d %H:%M:%S")
+        textEnd.value = datetime.utcfromtimestamp(newEndFloat // 1000).strftime("%Y-%m-%d %H:%M:%S")
+        jumpInput.value = textStartMaster.value
+        textStart2.value = datetime.utcfromtimestamp(newStartFloat // 1000).strftime("%Y-%m-%d %H:%M:%S")
+        textEnd2.value = datetime.utcfromtimestamp(newEndFloat // 1000).strftime("%Y-%m-%d %H:%M:%S")
+        jumpInput2.value = textStartMaster.value
+
+    def jumpToMaster(attr, old, new):
+        """on change method for the 'jump to' input text box. Used to jumped to desired date
+        maintains current time interval duration"""
+        newDate = pd.to_datetime(new)
+        msecondsFromEpoch = float((newDate-epochDate).total_seconds()*1000)
+        currentTimeRange = livePlot.x_range.end - livePlot.x_range.start
+        newEndFloat = msecondsFromEpoch + currentTimeRange
+        livePlot.x_range.start = msecondsFromEpoch
+        livePlot.x_range.end = newEndFloat
+        staticPlot.x_range.start = msecondsFromEpoch
+        staticPlot.x_range.end = newEndFloat
+        manualUpdatePlot.x_range.start = msecondsFromEpoch
+        manualUpdatePlot.x_range.end = newEndFloat
+        # note: using utcfromtimestamp vs just fromtimestamp to stay consistent with pandas converting to utc
+        textStartMaster.value = datetime.utcfromtimestamp(msecondsFromEpoch // 1000).strftime("%Y-%m-%d %H:%M:%S")
+        textEndMaster.value = datetime.utcfromtimestamp(newEndFloat // 1000).strftime("%Y-%m-%d %H:%M:%S")
+        textStart.value = datetime.utcfromtimestamp(msecondsFromEpoch // 1000).strftime("%Y-%m-%d %H:%M:%S")
+        textEnd.value = datetime.utcfromtimestamp(newEndFloat // 1000).strftime("%Y-%m-%d %H:%M:%S")
+        textStart2.value = datetime.utcfromtimestamp(msecondsFromEpoch // 1000).strftime("%Y-%m-%d %H:%M:%S")
+        textEnd2.value = datetime.utcfromtimestamp(newEndFloat // 1000).strftime("%Y-%m-%d %H:%M:%S")
+
+
+    textStart2 = TextInput(value=str(startDt), title='Month/Date/year HH:MM')
+    textEnd2 = TextInput(value=str(endDt), title='Month/Date/year HH:MM')
+    nextButton2 = Button(label='Go to Next Period')
+    jumpInput2 = TextInput(value=str(startDt), title='Type Month/Date/year HH:MM to jump to')
+    textStartMaster = TextInput(value=str(startDt), title='Month/Date/year HH:MM')
+    textEndMaster = TextInput(value=str(endDt), title='Month/Date/year HH:MM')
+    nextButtonMaster = Button(label='Go to Next Period')
+    jumpInputMaster = TextInput(value=str(startDt), title='Type Month/Date/year HH:MM to jump to')
+    masterStart = widgetbox(textStartMaster)
+    masterEnd = widgetbox(textEndMaster)
+    masterNext = widgetbox(nextButtonMaster)
+    masterJump = widgetbox(jumpInputMaster)
+    masterWidgets = row(masterStart, masterEnd, masterNext, masterJump)
+    textStartMaster.on_change('value', updateStartDateMaster)
+    textEndMaster.on_change('value', updateEndDateMaster)
+    nextButtonMaster.on_click(nextPeriodMaster)
+    jumpInputMaster.on_change('value', jumpToMaster)
+
+    textStart2.on_change('value', updateStartDate2)
+    textEnd2.on_change('value', updateEndDate2)
+    nextButton2.on_click(nextPeriod2)
+    jumpInput2.on_change('value', jumpTo2)
+    widgets = widgetbox(children=[textStart2, textEnd2, nextButton2, jumpInput2])
     textStart.on_change('value', updateStartDate)
     textEnd.on_change('value', updateEndDate)
     nextButton.on_click(nextPeriod)
@@ -160,15 +308,16 @@ def modify_doc(doc):
     widget3 = widgetbox(nextButton)
     widget4 = widgetbox(jumpInput)
     widget5 = widgetbox(manualUpdateButton)
-    realTimeTab = Panel(child=livePlot, title="Real Time")
+    realTimeTab = Panel(child=column(widgets, livePlot), title="Real Time")
     staticTab = Panel(child=column(row(widget, widget2, widget3, widget4), staticPlot), title="Static")
     manualTab = Panel(child=column(widget5, manualUpdatePlot), title='Manual', sizing_mode='stretch_both')
     # uncomment out the below 2 lines to get the 'live plotting' tab to work (given that you have also
     # downloaded the seaSurface.sqlite file)
     # doc.add_root(livePlot)
-    # doc.add_periodic_callback(callback, 10)
+    doc.add_periodic_callback(callback, 10)
     tabs = Tabs(tabs=[realTimeTab, staticTab, manualTab], sizing_mode='stretch_both')
-    doc.add_root(tabs)
+    layout = column(masterWidgets, tabs)
+    doc.add_root(layout)
 
 graphing_App = Application(FunctionHandler(modify_doc))
 

@@ -3,6 +3,8 @@ from bokeh.embed import server_document
 from .. import bokehAppTest
 from threading import Thread
 
+
+
 @view_config(route_name='bokeh_app', renderer='../templates/plot.jinja2')
 def bokeh_view(request):
     # note: starting the thread in the view each time will restart the
@@ -11,4 +13,5 @@ def bokeh_view(request):
     # i think due to fact bokeh was trying to create another doc on the same localhost location
     Thread(target=bokehAppTest.startBokehServer).start()
     script = server_document('http://localhost:5006/app')
-    return {'script': script, 'framework': "Pyramid"}
+    script2 = server_document('http://localhost:5006/app2')
+    return {'script': script, 'framework': "Pyramid", 'script2': script2}
