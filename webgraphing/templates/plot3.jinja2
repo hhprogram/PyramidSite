@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Viewer</title>
+    <style type="text/css">
+        :root {
+            --nav_bar_margin: 10%;
+        }
+
+        .bk-root {
+            width: 100%;
+            height: 100%;
+        }
+
+        .bk-plotdiv {
+            width: 100%;
+            height: 100%;
+        }
+
+        .user_buttons {
+            margin-left: var(--nav_bar_margin);
+        }
+
+        .plot_area {
+            margin-left: var(--nav_bar_margin);
+            width: 100%;
+            height: 100%;
+        }
+        .plot_area2 {
+            margin-left: var(--nav_bar_margin);
+        }
+
+        .navigation {
+            position: fixed;
+            list-style-type: none;
+            width: var(--nav_bar_margin);
+            background-color: orange;
+        }
+    </style>
+    {{ jsResources | safe }}
+    {{ cssResources | safe }}
+    <script src="https://code.jquery.com/jquery-3.1.0.min.js"></script>
+</head>
+<body>
+    <nav class="navigation">
+        <li><a href="#Home">Home</a></li>
+        <li><a href="#Settings">Settings<a></li>
+        <li><a href="#Other">Other</a></li>
+    </nav>
+    <div class="plot_area2">
+        {{ script2 | safe}}
+        {{ div2 | safe }}
+    </div>
+
+</body>
+</html>
